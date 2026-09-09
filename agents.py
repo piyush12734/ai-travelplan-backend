@@ -246,11 +246,42 @@ def recommendation_agent(state: TravelState) -> TravelState:
       }}
     }}
     """
-    response = llm.invoke([HumanMessage(content=prompt)])
-    text = response.content.strip()
-    text = text.replace("```json", "").replace("```", "").strip()
-    state["final_plan"] = json.loads(text)
-    print(f"✅ Final plan ready!")
+
+    max_retries = 2
+    last_error = None
+    for attempt in range(max_retries + 1):
+        response = llm.invoke([HumanMessage(content=prompt)])
+        text = response.content.strip()
+        text = text.replace("```json", "").replace("```", "").strip()
+
+        # Some models still wrap the JSON with stray text — try to isolate
+        # the outermost {...} block before parsing.
+        start = text.find("{")
+        end = text.rfind("}")
+        if start != -1 and end != -1:
+            text = text[start:end + 1]
+
+        try:
+            state["final_plan"] = json.loads(text)
+            print(f"✅ Final plan ready!")
+            return state
+        except json.JSONDecodeError as e:
+            last_error = e
+            print(f"⚠️ Recommendation JSON parse failed (attempt {attempt + 1}): {e}")
+            print(f"Raw response was: {text[:500]}")
+
+    # All retries failed — fall back to a minimal valid plan instead of crashing
+    print(f"❌ Giving up on JSON parsing after {max_retries + 1} attempts: {last_error}")
+    state["final_plan"] = {
+        "name": state["city"],
+        "days": state["days"],
+        "summary": "We had trouble generating a detailed plan for this trip. Please try again.",
+        "activities": [],
+        "local_food": [],
+        "tip": "",
+        "best_season": "",
+        "budget": {},
+    }
     return state
 
 
