@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from agents import build_travel_graph
 from dotenv import load_dotenv
 import os
+import traceback
 
 load_dotenv()
 
@@ -53,6 +54,8 @@ def plan_trip_get(city: str, days: int, month: str = "", budget: str = ""):
     try:
         return run_trip(city, days, month, budget)
     except Exception as e:
+        print("ERROR in /plan (GET):", str(e))
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -61,6 +64,8 @@ def plan_trip_post(request: TripRequest):
     try:
         return run_trip(request.city, request.days, request.month, request.budget)
     except Exception as e:
+        print("ERROR in /plan (POST):", str(e))
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
 
 
